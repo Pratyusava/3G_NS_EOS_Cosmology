@@ -21,23 +21,23 @@ c_in_km_per_sec = c/1000
 def Psi_PP(mc_z,q,f):
     mc_z *= GM_sun_by_c_squared
     f=f/c
-    return 3./(256.*(2*np.pi*mc_z*f)**(5./3.)) 
+    return 3./(128.*(np.pi*mc_z*f)**(5./3.)) 
 def Psi_PPht1(mc_z,q,f):
     mc_z *= GM_sun_by_c_squared
     f=f/c
-    return (3*3715./(256.*756.))*(1+q)**(4./5)/(q**(2/5)*mc_z)*(2*np.pi*f)**(-1.)
+    return (3*3715./(128.*756.))*(1+q)**(4./5)/(q**(2/5)*mc_z)*(np.pi*f)**(-1.)
 def Psi_PPht2(mc_z,q,f):
     mc_z *= GM_sun_by_c_squared
     f=f/c
-    return (55./(256.*3.))*q**(3./5)/(mc_z*(1+q)**(6./5))*(2*np.pi*f)**(-1.)
+    return (55./(128.*3.))*q**(3./5)/(mc_z*(1+q)**(6./5))*(np.pi*f)**(-1.)
 def Psi_tidal(mc_z,q,lambdat,f):
     mc_z *= GM_sun_by_c_squared
     f=f/c
-    return (-3.*39./8.)*lambdat*(np.pi*f)**(5./3.)*mc_z**(5/3.)*(1+q)**4/q**2.
+    return (-3.*39./256.)*lambdat*(np.pi*f)**(5./3.)*mc_z**(5/3.)*(1+q)**4/q**2.
     
 def h(mc_z,q,lambdat,deff,tc,pc,f):
     #the h(f) functin returns in proper SI units (in seconds)
-    return  np.sqrt(5*np.pi/24)*(mc_z*GM_sun_by_c_squared) **(5./6.)*(np.pi*f/c)**(-7./6.)*np.exp(1.0j*(Psi_PP(mc_z,q,f)+Psi_PPht1(mc_z,q,f)+Psi_PPht2(mc_z,q,f)+Psi_tidal(mc_z,q,lambdat,f)+2.*np.pi*f*tc-pc-np.pi/4.))/(c * GPC_TO_METER *deff)
+    return  -np.sqrt(5*np.pi/24)*(mc_z*GM_sun_by_c_squared) **(5./6.)*(np.pi*f/c)**(-7./6.)*np.exp(-1.0j*(Psi_PP(mc_z,q,f)+Psi_PPht1(mc_z,q,f)+Psi_PPht2(mc_z,q,f)+Psi_tidal(mc_z,q,lambdat,f)))/(c * GPC_TO_METER *deff)
 ###################################################################################################################
 
 
@@ -63,8 +63,15 @@ def lambda_from_m(mass):
     m, l = np.loadtxt('Mass_Vs_TidalDeformability_SLY.txt',dtype=float,unpack=True)  
     return np.interp(mass,m,l)
 
+def eta_from_m1_m2(m1, m2):
+    return m1*m2/(m1+m2)**2
+
 def lambda_tilde_from_m1_m2(m1,m2):
-    return (1./26)* (lambda_from_m(m1)*(1+12*m2/m1)+lambda_from_m(m2)*(1+12*m1/m2))
+    #from arXiv 1402.5156
+    eta = eta_from_m1_m2(m1, m2)
+    L1 = lambda_from_m(m1)
+    L2 = lambda_from_m(m2)
+    return (8./13) * ((1+7*eta-31*eta*eta)*(L1+L2) + ((m1-m2)/(m1+m2))*(1+9*eta-11*eta*eta)*(L1-L2))
 
 def lambda_tilde_from_m_chirp_q(m_chirp,q):
     return lambda_tilde_from_m1_m2(m1_m2_from_m_chirp_and_q(m_chirp,q)[0],m1_m2_from_m_chirp_and_q(m_chirp,q)[1])
@@ -155,9 +162,9 @@ class Waveform:
         Lambdat = self.lambda_tilde
         f = self.f
         psd = psd[self.mask]
-        dhdlogq = 1.0j * self.h * (Psi_PPht1(Mc_z,q,f)*(4*q/(5*(1+q))-2./5) + Psi_PPht2(Mc_z,q,f)*(3/5-(6*q)/(5*(1+q)))+Psi_tidal(Mc_z,q,Lambdat,f)*(4*q/(1+q)-2.) )
+        dhdlogq = -1.0j * self.h * (Psi_PPht1(Mc_z,q,f)*(4*q/(5*(1+q))-2./5) + Psi_PPht2(Mc_z,q,f)*(3/5-(6*q)/(5*(1+q)))+Psi_tidal(Mc_z,q,Lambdat,f)*(4*q/(1+q)-2.) )
         dhdlogDeff = -1 * self.h
-        dhdlogLam = self.h * 1.0j * Psi_tidal(Mc_z,q,Lambdat,f)
+        dhdlogLam = -self.h * 1.0j * Psi_tidal(Mc_z,q,Lambdat,f)
         dhdlogq2_int = np.trapz(4*np.real(dhdlogq*np.conj(dhdlogq))/psd, f)
         dhdlogDeff2_int = np.trapz(4*np.real(dhdlogDeff*np.conj(dhdlogDeff))/psd, f)
         dhdlogLam2_int = np.trapz(4*np.real(dhdlogLam*np.conj(dhdlogLam))/psd, f)
@@ -214,10 +221,9 @@ class Waveform:
     
     def make_z_m_chirp_samples(self, m_chirp_grid, log_q_array, log_lambda_tilde_array):
         m_chirp_grid_interp = interp2d(log_q_array,log_lambda_tilde_array,m_chirp_grid)
-        # q = np.exp(self.log_q_samples)
-        # mask = np.where(q>1)
-        # q[mask] = 1./q[mask]
-        #log_q = np.log(q)
+        log_q = np.array(self.log_q_samples[:])
+        mask = np.where(log_q>0)
+        log_q[mask] = - log_q[mask]
         log_q = self.log_q_samples
         log_lambda_tilde_samples_argsort = np.argsort(self.log_lambda_tilde_samples)
         log_q = log_q[log_lambda_tilde_samples_argsort]
