@@ -185,14 +185,14 @@ class Waveform:
         self.log_lambda_tilde_samples = samples[:,1]
         return None
 
-    # def make_log_q_log_lambda_tilde_samples_with_noise(self, n_samples = 4000):
-    #     mean = np.log(np.array([self.q, self.lambda_tilde]))
-    #     cov = self.log_q_log_lambda_tilde_cov_matrix
-    #     mean1 = np.random.multivariate_normal(mean, cov)
-    #     samples = np.random.multivariate_normal(mean1, cov, n_samples)
-    #     self.log_q_samples = samples[:,0]
-    #     self.log_lambda_tilde_samples = samples[:,1]
-    #     return None
+    def make_log_q_log_lambda_tilde_samples_with_noise(self, n_samples = 4000):
+        mean = np.log(np.array([self.q, self.lambda_tilde]))
+        cov = self.log_q_log_lambda_tilde_cov_matrix
+        mean1 = np.random.multivariate_normal(mean, cov)
+        samples = np.random.multivariate_normal(mean1, cov, n_samples)
+        self.log_q_samples = samples[:,0]
+        self.log_lambda_tilde_samples = samples[:,1]
+        return None
 
     def plot_log_q_log_lambda_tilde_log_effective_distance_samples(self):
         self.log_effective_distance_samples = np.random.normal(np.log(self.effective_distance), self.log_effective_distance_error, len(self.log_q_samples))
